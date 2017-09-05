@@ -52,8 +52,13 @@ contract('Splitter', function (accounts) {
     });
 
     it('receiver should be able to withdraw', () => {
-	return contract.split(sender, rec1, rec2, {from: sender, value: 500})
+	let origBal;
+	return contract.split(sender, rec1, rec2, {from: sender, value: web3.toWei(1, 'ether')})
 	    .then(txn => {
+		return web3.eth.getBalance(rec1);
+	    })
+	    .then(balance => {
+		origBal = balance;
 		return contract.withdraw(rec1, {from: rec1});
 	    })
 	    .then(txn => {
@@ -64,7 +69,11 @@ contract('Splitter', function (accounts) {
 		return contract.checkBalance(rec2);
 	    })
 	    .then(balance => {
-		assert.equal(balance.toString(10), '250', 'Balance for rec2 should be 250 since not withdrawn');
+		assert.equal(balance.toString(10), web3.toWei(0.5, 'ether'), 'Balance for rec2 should be 250 since not withdrawn');
+		return web3.eth.getBalance(rec1);
+	    })
+	    .then(balance => {
+		assert.isAbove(balance.toNumber(), origBal.toNumber(), "rec1 should have received funds");
 	    });
     });
 
