@@ -22,11 +22,11 @@ contract FixSplitter {
         // this is actually checked by Splitter contract, but better to fail fast?
         require(msg.value > 0); 
         
-        return splitterContract.split.value(msg.value)(addr1, addr2);
+        return splitterContract.split.value(msg.value)(msg.sender, addr1, addr2);
     }
     
-    function withdraw() public returns(bool success){
-        return splitterContract.withdraw();
+    function withdraw() public returns (bool success){
+        return splitterContract.withdraw(msg.sender);
     }
 
     function checkBalance(address addr) constant returns (uint256) {

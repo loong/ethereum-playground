@@ -16,7 +16,7 @@ contract('Splitter', function (accounts) {
     });
 
     it('should split', () => {
-	return contract.split(rec1, rec2, {from: sender, value: 500000})
+	return contract.split(sender, rec1, rec2, {from: sender, value: 500000})
 	    .then(txn => {
 		return contract.checkBalance(rec2);
 	    })
@@ -34,7 +34,7 @@ contract('Splitter', function (accounts) {
     });
 
     it('should split considering remainder', () => {
-	return contract.split(rec1, rec2, {from: sender, value: 5001})
+	return contract.split(sender, rec1, rec2, {from: sender, value: 5001})
 	    .then(txn => {
 		return contract.checkBalance(rec2);
 	    })
@@ -52,9 +52,9 @@ contract('Splitter', function (accounts) {
     });
 
     it('receiver should be able to withdraw', () => {
-	return contract.split(rec1, rec2, {from: sender, value: 500})
+	return contract.split(sender, rec1, rec2, {from: sender, value: 500})
 	    .then(txn => {
-		return contract.withdraw({from: rec1});
+		return contract.withdraw(rec1, {from: rec1});
 	    })
 	    .then(txn => {
 		return contract.checkBalance(rec1);
@@ -69,9 +69,9 @@ contract('Splitter', function (accounts) {
     });
 
     it('non receivers should not be able to withdraw', () => {
-	return contract.split(rec1, rec2, {from: sender, value: 500})
+	return contract.split(sender, rec1, rec2, {from: sender, value: 500})
 	    .then(txn => {
-		return contract.withdraw({from: sender});
+		return contract.withdraw(sender, {from: sender});
 	    })
 	    .then(assert.fail)
 	    .catch(error => {
