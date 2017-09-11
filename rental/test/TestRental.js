@@ -152,7 +152,7 @@ contract('Rental', (accounts) => {
 		    return contract.isVacant.call();
 		}).then(isVacant => {
 		    assert.isFalse(isVacant, "cannot be vacant after tenant moved in");
-		    return contract.getRentPaidUntil.call();
+		    return contract.paidRentUntilBlock.call();
 		}).then(paidUntil => {
 		    initialBlockTime = paidUntil.toNumber();
 		    return contract.payRent.call({from: tenant, value: rent});
@@ -160,7 +160,7 @@ contract('Rental', (accounts) => {
 		    assert.isTrue(success, "should be able to receive rent payment");
 		    return contract.payRent({from: tenant, value: rent});
 		}).then(txn => {
-		    return contract.getRentPaidUntil.call();
+		    return contract.paidRentUntilBlock.call();
 		}).then(paidUntil => {
 		    assert.equal(paidUntil.toNumber(), initialBlockTime + 1, "should extend rental by 1 block");
 		    return contract.withdrawRent({from: landlord});
@@ -228,21 +228,19 @@ contract('Rental', (accounts) => {
 		    return contract.isVacant.call();
 		})
 		.then(isVacant => {
-		    		    console.log("TADA");		    		  
-
 		    assert.isTrue(isVacant, "is not vacant after moving out");
 		});
 	});
 
 	it('landlord should not be able to kick out tenant if rent is paid', () => {
 	    let origPaidUntil;
-	    return contract.getRentPaidUntil.call()
+	    return contract.paidRentUntilBlock.call()
 		.then(paidUntil => {
 		    origPaidUntil = paidUntil.toNumber();
 		    return contract.payRent({from: tenant, value: rent5x});
 		})
 		.then(txn => {
-		    return contract.getRentPaidUntil.call();
+		    return contract.paidRentUntilBlock.call();
 		})
 		.then(paidUntil => {
 		    assert.equal(paidUntil.toNumber(), origPaidUntil+5, "PaidUntil should increase by 5 blocks");

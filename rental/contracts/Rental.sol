@@ -4,40 +4,38 @@ pragma solidity 0.4.13;
 //  - Theoretically the landlord can immidiately kick out the tenant a soon as deposit is received and keep their deposit locked in the contract
 //  - Landlord does not get compensated for the days a tenant overstays
 //  - Rent per blocktime is suboptimal as blocktime is volatile
-//  
+  
 // Questions:
 //  - What's the point of returning success variable?
 //  - Is there a better way to handle deposit withdrawals (e.g. iwthout arbitrar?)
-//  - For a function that need transactions 
  
 contract Rental {
     enum State { VACANT, OCCUPIED }
-    State state;
+    State private state;
 
-    // nonce used for unique incremental rentalIDs. Note that rentalID
-    // starts with 1 and not 0 to disambiguate default value
-    uint32 nonce;
-    uint32 activeRentalID;
+    // nonce used for unique incremental rentalIDs. Note that rentalID starts with 1 and not 0 to disambiguate default value 
+    uint32 private nonce;
+    uint32 private activeRentalID;
     
-    address tenant;
-    address landlord;
-    address arbitrar;
+    address public landlord;
+    address public tenant;
+    address public arbitrar;
     
-    uint256 requiredDeposit;
-    uint256 rent;
+    uint256 public requiredDeposit;
+    uint256 public rent;
     
-    uint256 paidRentUntilBlock;
-    uint256 totalDeposited;
-    bool isTerminated;
+    uint256 public paidRentUntilBlock;
+    uint256 private totalDeposited;
+    bool public isTerminated;
     
     struct deposit {
         address depositer;
         uint256 amount;
     }
     
-    mapping(uint32 => deposit) deposits;
-    mapping(uint32 => int8) depositReleaseVoteSum;
-    mapping(uint32 => mapping(address => bool)) depositReleaseVoters;
+    mapping(uint32 => deposit) private deposits;
+    mapping(uint32 => int8) private depositReleaseVoteSum;
+    mapping(uint32 => mapping(address => bool)) private depositReleaseVoters;
     
     enum TenantAction { MOVE_IN, MOVE_OUT, KICKED_OUT, TERMINATE }
     enum PaymentType { DEPOSIT_IN, DEPOSIT_OUT, RENT_IN, RENT_OUT }
@@ -68,10 +66,6 @@ contract Rental {
         } else {
             return addr == tenant;
         }
-    }
-    
-    function getRentPaidUntil() public constant returns (uint256) {
-        return paidRentUntilBlock;
     }
     
     // anybody can moveIn as long as the deposit is paid in full
