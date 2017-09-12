@@ -8,7 +8,9 @@ pragma solidity 0.4.13;
 // Questions:
 //  - Is there a better way to handle deposit withdrawals (e.g. without arbitrar?)
  
-contract Rental {
+import "./Owned.sol";
+
+contract Rental is Owned {
     enum State { VACANT, OCCUPIED }
     State private state;
 
@@ -16,7 +18,6 @@ contract Rental {
     uint32 public nonce;
     bytes32 public activeRentalID;
     
-    address public landlord;
     address public tenant;
     address public arbitrar;
     
@@ -46,7 +47,6 @@ contract Rental {
     function Rental(uint rentalDeposit, uint rentPerBlock, address disputeArbitrar) {
         require(msg.sender != disputeArbitrar);
         
-        landlord = msg.sender;
         requiredDeposit = rentalDeposit;
         rent = rentPerBlock;
         arbitrar = disputeArbitrar;
@@ -61,7 +61,7 @@ contract Rental {
     // e.g. a smart lock can use this to check authorization
     function hasAccess(address addr) public constant returns (bool) {
         if (state == State.VACANT) {
-            return addr == landlord;
+            return addr == owner;
         } else {
             return addr == tenant;
         }
@@ -105,9 +105,8 @@ contract Rental {
     }
     
     // landlord can kick out the tenant if the rent is due
-    function kickOut() external returns (bool success) {
+    function kickOut() external isOwner returns (bool success) {
         require(state == State.OCCUPIED);
-        require(msg.sender == landlord);
         require(block.number > paidRentUntilBlock);
         
         resetActiveRental();
@@ -121,7 +120,7 @@ contract Rental {
     // for deposits to be released at least 2 parties have to sign. Note that 
     // this can only be submitted once.
     function signDeposit(bytes32 rentalID, bool allow) external returns (bool success) {
-        bool isLandlord = msg.sender == landlord;
+        bool isLandlord = msg.sender == owner;
         bool isTenant = msg.sender == tenant;
         bool isArbitrar = msg.sender == arbitrar;
 	bool isValidRentalID = deposits[rentalID].amount > 0;
@@ -185,13 +184,12 @@ contract Rental {
         return true;
     }
     
-    function withdrawRent() external returns (bool success) {
-        require(msg.sender == landlord);
+    function withdrawRent() external isOwner returns (bool success) {
         require(this.balance > totalDeposited);
         
         uint256 withdrawableAmount = this.balance - totalDeposited;
         
-        landlord.transfer(withdrawableAmount);
+        owner.transfer(withdrawableAmount);
         LogPayments(activeRentalID, msg.sender, withdrawableAmount, PaymentType.RENT_OUT);
         
         return true;
@@ -199,22 +197,19 @@ contract Rental {
     
     // landlord is able to terminate the contract by making the tenant unable to
     // pay for future rent
-    function terminate() external returns (bool success) {
-        require(msg.sender == landlord);
-        
+    function terminate() external isOwner returns (bool success) {
         isTerminated = true;
-        LogTenants(activeRentalID, landlord, TenantAction.TERMINATE);
+        LogTenants(activeRentalID, owner, TenantAction.TERMINATE);
         
         return true;
     }
     
-    function kill() external returns (bool success) {
-        require(msg.sender == landlord);
+    function kill() external isOwner returns (bool success) {
         require(totalDeposited == 0);
         
         assert(state == State.VACANT);
         
-        selfdestruct(landlord);
+        selfdestruct(owner);
         return true;
     }
     
