@@ -6,16 +6,15 @@ pragma solidity 0.4.13;
 //  - Rent per blocktime is suboptimal as blocktime is volatile
   
 // Questions:
-//  - What's the point of returning success variable?
-//  - Is there a better way to handle deposit withdrawals (e.g. iwthout arbitrar?)
+//  - Is there a better way to handle deposit withdrawals (e.g. without arbitrar?)
  
 contract Rental {
     enum State { VACANT, OCCUPIED }
     State private state;
 
     // nonce used for unique incremental rentalIDs. Note that rentalID starts with 1 and not 0 to disambiguate default value 
-    uint32 private nonce;
-    uint32 private activeRentalID;
+    uint32 public nonce;
+    bytes32 public activeRentalID;
     
     address public landlord;
     address public tenant;
@@ -33,15 +32,15 @@ contract Rental {
         uint256 amount;
     }
     
-    mapping(uint32 => deposit) private deposits;
-    mapping(uint32 => int8) private depositReleaseVoteSum;
-    mapping(uint32 => mapping(address => bool)) private depositReleaseVoters;
+    mapping(bytes32 => deposit) public deposits;
+    mapping(bytes32 => int8) public depositReleaseVoteSum;
+    mapping(bytes32 => mapping(address => bool)) public depositReleaseVoters;
     
     enum TenantAction { MOVE_IN, MOVE_OUT, KICKED_OUT, TERMINATE }
     enum PaymentType { DEPOSIT_IN, DEPOSIT_OUT, RENT_IN, RENT_OUT }
 
-    event LogTenants(uint32 indexed rentalID, address indexed tenant, TenantAction indexed action);
-    event LogPayments(uint32 indexed rentalID, address indexed actor, uint256 amount, PaymentType indexed paymentType);
+    event LogTenants(bytes32 indexed rentalID, address indexed tenant, TenantAction indexed action);
+    event LogPayments(bytes32 indexed rentalID, address indexed actor, uint256 amount, PaymentType indexed paymentType);
     
     // Constructor
     function Rental(uint rentalDeposit, uint rentPerBlock, address disputeArbitrar) {
@@ -69,7 +68,7 @@ contract Rental {
     }
     
     // anybody can moveIn as long as the deposit is paid in full
-    function moveIn() external payable returns (uint32 rentalID) {
+    function moveIn() external payable returns (bytes32 rentalID) {
         require(state == State.VACANT);
         
         // need to pay the deposit in full or the money will be sent back
@@ -78,7 +77,7 @@ contract Rental {
         tenant = msg.sender;
         
         nonce += 1;
-        activeRentalID = nonce;
+        activeRentalID = keccak256(nonce, tenant);
         
         deposits[activeRentalID] = deposit(msg.sender, msg.value);
         totalDeposited += msg.value;
@@ -121,14 +120,15 @@ contract Rental {
     
     // for deposits to be released at least 2 parties have to sign. Note that 
     // this can only be submitted once.
-    function signDeposit(uint32 rentalID, bool allow) external returns (bool success) {
+    function signDeposit(bytes32 rentalID, bool allow) external returns (bool success) {
         bool isLandlord = msg.sender == landlord;
         bool isTenant = msg.sender == tenant;
         bool isArbitrar = msg.sender == arbitrar;
-        
+	bool isValidRentalID = deposits[rentalID].amount > 0;
+
         bool hasVoted = depositReleaseVoters[rentalID][msg.sender];
         
-        require(rentalID > 0);
+        require(isValidRentalID);
         require(isLandlord || isTenant || isArbitrar);
         require(!hasVoted);
         
@@ -150,11 +150,10 @@ contract Rental {
     
     // depositer can get the deposit back if at least 2 of either landlord, 
     // tenant or arbitrar (3rd party who will decide if there are issues)
-    function withdrawDeposit(uint32 rentalID) external returns (bool success) {
+    function withdrawDeposit(bytes32 rentalID) external returns (bool success) {
         deposit memory dep = deposits[rentalID];
         uint256 withdrawable = dep.amount;
-        
-        require(rentalID > 0);
+
         require(withdrawable > 0);
         require(depositReleaseVoteSum[rentalID] >= 2);
         require(msg.sender == dep.depositer);
@@ -179,7 +178,6 @@ contract Rental {
         // 3*60*24*90 = 388800
         require(msg.value > 0 && msg.value < rent*388800);
         
-        // TODO is revert needed here?
         if (!extendRent(msg.value)) revert();
         
         LogPayments(activeRentalID, msg.sender, msg.value, PaymentType.RENT_IN);
@@ -235,7 +233,7 @@ contract Rental {
     
     function resetActiveRental() private {
         tenant = 0;
-        activeRentalID = 0;
+        activeRentalID = "";
         isTerminated = false;
     }
     

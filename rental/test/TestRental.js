@@ -81,12 +81,12 @@ contract('Rental', (accounts) => {
     let arbitrar = accounts[2];
     let randomPerson = accounts[3]; // used to check whether anybody can pay the rent
 
-    let deposit = web3.toWei(2, "ether");
-    let insufficientDeposit = web3.toWei(1.9999999999, "ether");
+    let deposit = web3.toWei(1, "ether");
+    let insufficientDeposit = web3.toWei(0.9999999999, "ether");
 
-    let rent = web3.toWei(0.000001, "ether");
-    let rent5x = web3.toWei(0.000005, "ether");
-    let tooMuchRent = web3.toWei(5, "ether");
+    let rent = web3.toWei(0.0000001, "ether");
+    let rent5x = web3.toWei(0.0000005, "ether");
+    let tooMuchRent = web3.toWei(0.05, "ether");
     
     describe("Constructor Tests", () => {
 	it('should not allow landlord to be arbitrar', () => {
@@ -145,7 +145,7 @@ contract('Rental', (accounts) => {
 	    var initialBlockTime;
 	    return contract.moveIn.call({from: tenant, value: deposit})
 		.then(rentalID => {
-		    assert.equal(rentalID.toString(10), "1", "valid tenant with enough deposit not able to move in");
+		    assert.equal(rentalID.toString(10).length, 66, "valid tenant with enough deposit not able to move in");
 		    return contract.moveIn({from: tenant, value: deposit});
 		})
 		.then(txn => {
@@ -292,30 +292,35 @@ contract('Rental', (accounts) => {
 
     describe("Test on deposit withdrawal", () => {
     	let contract;
-
+	let rentalID;
+	
     	beforeEach(() => {
     	    return Rental.new(deposit, rent, arbitrar)
-    		.then(instance => {
-    		    contract = instance;
-    		    return contract.moveIn({from: tenant, value: deposit});
-    		});
+		.then(instance => {
+		    contract = instance;
+		    return contract.moveIn.call({from: tenant, value: deposit});
+		})
+		.then(activeRentalID => {
+		    rentalID = activeRentalID;
+		    return contract.moveIn({from: tenant, value: deposit});
+		});
     	});
 
 	it('should be able to withdraw deposit', () => {
-	    return contract.signDeposit(1, true, {from: landlord})
+	    return contract.signDeposit(rentalID, true, {from: landlord})
 		.then(txn => {
-		    return contract.signDeposit(1, true, {from: tenant});
+		    return contract.signDeposit(rentalID, true, {from: tenant});
 		})
 		.then(txn => {
-		    return contract.withdrawDeposit(1, {from: tenant});
+		    return contract.withdrawDeposit(rentalID, {from: tenant});
 		});
 	});
 
 	it('should not be able to withdraw deposit with only one vote', () => {
-	    return contract.signDeposit(1, true, {from: landlord})
+	    return contract.signDeposit(rentalID, true, {from: landlord})
 		.then(txn => {
 		    return expectedExceptionPromise(() => {
-			return contract.withdrawDeposit(1, {from: tenant});
+			return contract.withdrawDeposit(rentalID, {from: tenant});
 		    }, 1000000);
 		});
 	});
@@ -323,17 +328,17 @@ contract('Rental', (accounts) => {
 
 	it('should not allow random people to vote', () => {
 	    return expectedExceptionPromise(() => {
-		return contract.signDeposit(1, true, {from: randomPerson})
+		return contract.signDeposit(rentalID, true, {from: randomPerson})
 	    }, 1000000); 
 	});
 
 	it('should be able to resolve withdrawal with arbitrar', () => {
-	    return contract.signDeposit(1, true, {from: tenant})
+	    return contract.signDeposit(rentalID, true, {from: tenant})
 		.then(txn => {
-		    return contract.signDeposit(1, true, {from: arbitrar});
+		    return contract.signDeposit(rentalID, true, {from: arbitrar});
 		})
 		.then(txn => {
-		    return contract.withdrawDeposit(1, {from: tenant});
+		    return contract.withdrawDeposit(rentalID, {from: tenant});
 		});
 	});
 
