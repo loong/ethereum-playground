@@ -150,7 +150,8 @@ contract Rental is Owned {
             voteSum -= 1;
         }
         
-        assert(voteSum > -4 && voteSum < 4);
+        // sanity check: since there are only at most 3 parties involved
+        assert(voteSum > -3 && voteSum < 3);
         
         dep.voteSum = voteSum;
         dep.voters[msg.sender] = true;
@@ -165,7 +166,7 @@ contract Rental is Owned {
         uint256 withdrawable = dep.amount;
 
         require(withdrawable > 0);
-        require(dep.voteSum >= 2);
+        require(dep.voteSum >= 2); // need majority to allow deposit withdrawal
         require(msg.sender == dep.depositer);
         
         dep.amount = 0;
@@ -183,7 +184,7 @@ contract Rental is Owned {
         uint256 withdrawable = dep.amount;
 
         require(withdrawable > 0);
-        require(dep.voteSum <= -2);
+        require(dep.voteSum <= -2); // need majority to disallow deposit withdrawal
 
         dep.amount = 0;
         totalDeposited -= dep.amount;
