@@ -1,7 +1,7 @@
 pragma solidity 0.4.13;
 
 contract Splitter {
-    mapping(address => uint256) balances;
+    mapping(address => uint256) public balances;
     
     function split(address origSender, address addr1, address addr2) public payable returns(bool success) {
         require(msg.value > 1);
@@ -20,7 +20,7 @@ contract Splitter {
         return true;
     }
     
-    function withdraw(address addr) returns(bool success) {
+    function withdraw(address addr) public returns(bool success) {
         uint256 amount = balances[addr];
         require(amount > 0);
         
@@ -28,9 +28,5 @@ contract Splitter {
         addr.transfer(amount);
         
         return true;
-    }
-    
-    function checkBalance(address addr) constant returns (uint256) {
-        return balances[addr];
     }
 }

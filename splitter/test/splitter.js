@@ -18,15 +18,15 @@ contract('Splitter', function (accounts) {
     it('should split', () => {
 	return contract.split(sender, rec1, rec2, {from: sender, value: 500000})
 	    .then(txn => {
-		return contract.checkBalance(rec2);
+		return contract.balances(rec2);
 	    })
 	    .then(balance => {
 		assert.equal(balance.toString(10), '250000');
-		return contract.checkBalance(rec1);
+		return contract.balances(rec1);
 	    })
 	    .then(balance => {
 		assert.equal(balance.toString(10), '250000');
-		return contract.checkBalance(sender);
+		return contract.balances(sender);
 	    })
 	    .then(balance => {
 		assert.equal(balance.toString(10), '0');
@@ -36,15 +36,15 @@ contract('Splitter', function (accounts) {
     it('should split considering remainder', () => {
 	return contract.split(sender, rec1, rec2, {from: sender, value: 5001})
 	    .then(txn => {
-		return contract.checkBalance(rec2);
+		return contract.balances(rec2);
 	    })
 	    .then(balance => {
 		assert.equal(balance.toString(10), '2500');
-		return contract.checkBalance(rec1);
+		return contract.balances(rec1);
 	    })
 	    .then(balance => {
 		assert.equal(balance.toString(10), '2500');
-		return contract.checkBalance(sender);
+		return contract.balances(sender);
 	    })
 	    .then(balance => {
 		assert.equal(balance.toString(10), '1');
@@ -62,11 +62,11 @@ contract('Splitter', function (accounts) {
 		return contract.withdraw(rec1, {from: rec1});
 	    })
 	    .then(txn => {
-		return contract.checkBalance(rec1);
+		return contract.balances(rec1);
 	    })
 	    .then(balance => {
 		assert.equal(balance, 0, 'Balance for rec1 should be 0 since withdrawn');
-		return contract.checkBalance(rec2);
+		return contract.balances(rec2);
 	    })
 	    .then(balance => {
 		assert.equal(balance.toString(10), web3.toWei(0.5, 'ether'), 'Balance for rec2 should be 250 since not withdrawn');
