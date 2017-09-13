@@ -31,11 +31,17 @@ contract Rental is Owned {
     struct deposit {
         address depositer;
         uint256 amount;
+        
+        // To keep track who has signed the deposit
+        mapping(address => bool) voters;
+        
+        // To keep track on the results the following way:
+        //   - add 1 if signer agrees on the deposit withdrawal
+        //   - subtract 1 if signer disagree with deposit withdrawal
+        int8 voteSum;
     }
     
     mapping(bytes32 => deposit) public deposits;
-    mapping(bytes32 => int8) public depositReleaseVoteSum;
-    mapping(bytes32 => mapping(address => bool)) public depositReleaseVoters;
     
     enum TenantAction { MOVE_IN, MOVE_OUT, KICKED_OUT, TERMINATE }
     enum PaymentType { DEPOSIT_IN, DEPOSIT_OUT, RENT_IN, RENT_OUT }
@@ -79,7 +85,10 @@ contract Rental is Owned {
         nonce += 1;
         activeRentalID = keccak256(nonce, tenant);
         
-        deposits[activeRentalID] = deposit(msg.sender, msg.value);
+        deposit memory dep;
+        dep.depositer = msg.sender;
+        dep.amount = msg.value;
+        deposits[activeRentalID] = dep;
         totalDeposited += msg.value;
         paidRentUntilBlock = block.number;
         
@@ -120,18 +129,20 @@ contract Rental is Owned {
     // for deposits to be released at least 2 parties have to sign. Note that 
     // this can only be submitted once.
     function signDeposit(bytes32 rentalID, bool allow) external returns (bool success) {
+        deposit storage dep = deposits[rentalID]; // points directly to storage
+        
         bool isLandlord = msg.sender == owner;
         bool isTenant = msg.sender == tenant;
         bool isArbitrar = msg.sender == arbitrar;
-	bool isValidRentalID = deposits[rentalID].amount > 0;
-
-        bool hasVoted = depositReleaseVoters[rentalID][msg.sender];
+        bool isValidRentalID = dep.amount > 0;
+        
+        bool hasVoted = dep.voters[msg.sender];
         
         require(isValidRentalID);
         require(isLandlord || isTenant || isArbitrar);
         require(!hasVoted);
         
-        int8 voteSum = depositReleaseVoteSum[rentalID];
+        int8 voteSum = dep.voteSum;
         
         if (allow) {
             voteSum += 1;
@@ -141,27 +152,44 @@ contract Rental is Owned {
         
         assert(voteSum > -4 && voteSum < 4);
         
-        depositReleaseVoteSum[rentalID] = voteSum;
-        depositReleaseVoters[rentalID][msg.sender] = true;
-    
+        dep.voteSum = voteSum;
+        dep.voters[msg.sender] = true;
+        
         return true;
     }
     
     // depositer can get the deposit back if at least 2 of either landlord, 
     // tenant or arbitrar (3rd party who will decide if there are issues)
     function withdrawDeposit(bytes32 rentalID) external returns (bool success) {
-        deposit memory dep = deposits[rentalID];
+        deposit storage dep = deposits[rentalID]; // caution is pointer
         uint256 withdrawable = dep.amount;
 
         require(withdrawable > 0);
-        require(depositReleaseVoteSum[rentalID] >= 2);
+        require(dep.voteSum >= 2);
         require(msg.sender == dep.depositer);
         
-        deposits[rentalID].amount = 0;
+        dep.amount = 0;
         totalDeposited -= dep.amount;
         dep.depositer.transfer(withdrawable);
         
         LogPayments(rentalID, dep.depositer, withdrawable, PaymentType.DEPOSIT_OUT);
+        return true;
+    }
+    
+    // landlord can claim the deposit if at least 2 of either landlord, 
+    // tenant or arbitrar disagree with the return of the deposit
+    function claimDeposit(bytes32 rentalID) external isOwner returns (bool success) {
+        deposit storage dep = deposits[rentalID]; // caution is pointer
+        uint256 withdrawable = dep.amount;
+
+        require(withdrawable > 0);
+        require(dep.voteSum <= -2);
+
+        dep.amount = 0;
+        totalDeposited -= dep.amount;
+        owner.transfer(withdrawable);
+        
+        LogPayments(rentalID, owner, withdrawable, PaymentType.DEPOSIT_OUT);
         return true;
     }
     

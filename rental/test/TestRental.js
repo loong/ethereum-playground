@@ -306,13 +306,23 @@ contract('Rental', (accounts) => {
 		});
     	});
 
-	it('should be able to withdraw deposit', () => {
+	it('should be able to withdraw deposit as tenant', () => {
 	    return contract.signDeposit(rentalID, true, {from: landlord})
 		.then(txn => {
 		    return contract.signDeposit(rentalID, true, {from: tenant});
 		})
 		.then(txn => {
 		    return contract.withdrawDeposit(rentalID, {from: tenant});
+		});
+	});
+
+      	it('should be able to withdraw deposit as landlord', () => {
+	    return contract.signDeposit(rentalID, false, {from: landlord})
+		.then(txn => {
+		    return contract.signDeposit(rentalID, false, {from: tenant});
+		})
+		.then(txn => {
+		    return contract.claimDeposit(rentalID, {from: landlord});
 		});
 	});
 
